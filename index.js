@@ -28,16 +28,16 @@ const PREFIX = '.';
 const tempVoiceChannels = new Map();
 
 // --- YETKİLENDİRME AYARLARI ---
-// Botu kullanmasına izin vermek istediğin Kişi ID'lerini buraya yaz
+// İstediğin kadar Kullanıcı ID'si ekleyebilirsin
 const AUTHORIZED_USERS = [
-  '472426472959639553',
-  '812246018179072030',
-  '310618601709109259',
+  'KULLANICI_ID_1',
+  'KULLANICI_ID_2'
 ];
 
-// Botu kullanmasına izin vermek istediğin Rol ID'lerini buraya yaz
+// İstediğin kadar Rol ID'si ekleyebilirsin
 const AUTHORIZED_ROLES = [
-  '1541146082812235816'
+  'ROL_ID_1',
+  'ROL_ID_2'
 ];
 
 // Yetki Kontrol Fonksiyonu
@@ -202,163 +202,6 @@ client.on('messageCreate', async (message) => {
 
   // Özel Ses Kurulum (.özel-ses-kur)
   if (command === 'özel-ses-kur') {
-    const joinChannel = await message.guild.channels.create({
-      name: '➕ Odaya Gir',
-      type: ChannelType.GuildVoice
-    });
-
-    message.channel.send(`Özel ses kanalı sistemi kuruldu: ${joinChannel}`);
-  }
-});
-
-// Otomatik Ses Kanalı Oluşturucu
-client.on('voiceStateUpdate', async (oldState, newState) => {
-  if (newState.channel && newState.channel.name === '➕ Odaya Gir') {
-    const guild = newState.guild;
-    const user = newState.member;
-
-    const createdChannel = await guild.channels.create({
-      name: `🔊 ${user.user.username}'in Odası`,
-      type: ChannelType.GuildVoice,
-      parent: newState.channel.parentId,
-      permissionOverwrites: [
-        { id: user.id, allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] }
-      ]
-    });
-
-    await newState.setChannel(createdChannel);
-    tempVoiceChannels.set(createdChannel.id, user.id);
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('lock_voice').setLabel('🔒 Kilitle').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('limit_voice').setLabel('👥 Limit (5)').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('kick_voice').setLabel('❌ Odaları Sil').setStyle(ButtonStyle.Danger)
-    );
-
-    const textPerm = createdChannel.permissionsFor(guild.roles.everyone);
-    if (textPerm.has(PermissionFlagsBits.SendMessages)) {
-      await createdChannel.send({
-        content: `${user}, özel ses odası yönetim paneli:`,
-        components: [row]
-      });
-    }
-  }
-
-  if (oldState.channel && tempVoiceChannels.has(oldState.channel.id)) {
-    if (oldState.channel.members.size === 0) {
-      await oldState.channel.delete().catch(() => {});
-      tempVoiceChannels.delete(oldState.channel.id);
-    }
-  }
-});
-
-// Panel Buton Kontrolleri
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isButton()) return;
-
-  const channel = interaction.channel;
-  const ownerId = tempVoiceChannels.get(channel.id);
-
-  if (interaction.user.id !== ownerId) {
-    return interaction.reply({ content: 'Bu oda sana ait değil.', ephemeral: true });
-  }
-
-  if (interaction.customId === 'lock_voice') {
-    const isLocked = channel.permissionOverwrites.cache.get(interaction.guild.roles.everyone.id)?.deny.has(PermissionFlagsBits.Connect);
-    await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: isLocked ? true : false });
-    interaction.reply({ content: isLocked ? 'Oda açıldı.' : 'Oda kilitlendi.', ephemeral: true });
-  }
-
-  if (interaction.customId === 'limit_voice') {
-    await channel.setUserLimit(5);
-    interaction.reply({ content: 'Limit 5 kişi olarak ayarlandı.', ephemeral: true });
-  }
-
-  if (interaction.customId === 'kick_voice') {
-    await channel.delete();
-    tempVoiceChannels.delete(channel.id);
-  }
-});
-
-client.login(process.env.TOKEN);    const minutes = parseInt(args[1]) || 10;
-    if (!member) return message.reply('Kullanım: `.mute @üye 15`');
-
-    try {
-      await member.timeout(minutes * 60 * 1000);
-      message.channel.send(`**${member.user.username}** ${minutes} dakika susturuldu.`);
-    } catch (e) {
-      message.channel.send('İşlem başarısız.');
-    }
-  }
-
-  // Çekiliş
-  if (command === 'çekiliş' || command === 'cekilis') {
-    if (!isMod) return message.reply('Yetkin yok.');
-    const duration = parseInt(args[0]);
-    const prize = args.slice(1).join(' ');
-
-    if (!duration || !prize) return message.reply('Kullanım: `.çekiliş <saniye> <ödül>`');
-
-    const giveawayMsg = await message.channel.send(`🎉 **ÇEKİLİŞ** 🎉\nÖdül: **${prize}**\nSüre: **${duration} saniye**\nKatılmak için 🎉 tepkisine bas!`);
-    await giveawayMsg.react('🎉');
-
-    setTimeout(async () => {
-      const fetchedMsg = await message.channel.messages.fetch(giveawayMsg.id);
-      const reaction = fetchedMsg.reactions.cache.get('🎉');
-      const users = await reaction.users.fetch();
-      const validUsers = users.filter(u => !u.bot);
-
-      if (validUsers.size === 0) return message.channel.send('Çekiliş katılım olmadığı için iptal edildi.');
-
-      const winner = validUsers.random();
-      message.channel.send(`🎉 Tebrikler ${winner}, **${prize}** kazandın!`);
-    }, duration * 1000);
-  }
-
-  // Kanal Aç
-  if (command === 'kanal-aç' || command === 'kanalaç') {
-    if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('Yetkin yok.');
-    const name = args.join(' ');
-    if (!name) return message.reply('Kanal ismi belirt.');
-
-    await message.guild.channels.create({ name, type: ChannelType.GuildText });
-    message.channel.send(`Kanal oluşturuldu: #${name}`);
-  }
-
-  // Rol Aç
-  if (command === 'rol-aç' || command === 'rolaç') {
-    if (!isMod) return message.reply('Yetkin yok.');
-    const name = args.join(' ');
-    if (!name) return message.reply('Rol ismi belirt.');
-
-    await message.guild.roles.create({ name });
-    message.channel.send(`Rol oluşturuldu: ${name}`);
-  }
-
-  // Ses Kanalında Kalma (AFK Ses)
-  if (command === 'afk-ses') {
-    if (!isMod) return message.reply('Yetkin yok.');
-    const channelId = args[0];
-    if (!channelId) return message.reply('Kanal ID gir.');
-
-    const { joinVoiceChannel } = require('@discordjs/voice');
-    try {
-      joinVoiceChannel({
-        channelId: channelId,
-        guildId: message.guild.id,
-        adapterCreator: message.guild.voiceAdapterCreator,
-        selfDeaf: true
-      });
-      message.channel.send('Sese bağlantı sağlandı.');
-    } catch (e) {
-      message.channel.send('Sese girilemedi.');
-    }
-  }
-
-  // Özel Ses Kurulum
-  if (command === 'özel-ses-kur') {
-    if (!isMod) return message.reply('Yetkin yok.');
-    
     const joinChannel = await message.guild.channels.create({
       name: '➕ Odaya Gir',
       type: ChannelType.GuildVoice
